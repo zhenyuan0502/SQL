@@ -1,0 +1,41 @@
+CREATE TABLE Sales
+(
+    SalesID INT PRIMARY KEY CLUSTERED,
+    SalesPersonID INT NOT NULL,
+    ProductID INT NOT NULL,
+    SaleDate DATE NOT NULL,
+    Quantity INT NOT NULL,
+    Price DECIMAL(10,2) NOT NULL,
+    TotalAmount AS Quantity * Price
+) WITH (DATA_COMPRESSION = PAGE);
+
+DECLARE @i INT = 1;
+WHILE @i <= 100000
+BEGIN
+    INSERT INTO Sales (SalesID, SalesPersonID, ProductID, SaleDate, Quantity, Price)
+    VALUES (@i, FLOOR(RAND()*100)+1, FLOOR(RAND()*10)+1, DATEADD(DAY, FLOOR(RAND()*365), '2020-01-01'), FLOOR(RAND()*100)+1, FLOOR(RAND()*1000)+1);
+    SET @i = @i + 1;
+END;
+
+
+CREATE NONCLUSTERED INDEX IX_Sales_Rowstore ON Sales (Region, Product) INCLUDE (OrderDate, SalesAmount);
+CREATE CLUSTERED COLUMNSTORE INDEX IX_Sales_Columnstore ON Sales;
+-- Query 1: Aggregate sales by region using rowstore index
+SELECT Region, SUM(SalesAmount) AS TotalSales
+FROM Sales WITH (INDEX(IX_Sales_Rowstore))
+GROUP BY Region;
+
+-- Query 2: Aggregate sales by region using columnstore index
+SELECT Region, SUM(SalesAmount) AS TotalSales
+FROM Sales WITH (INDEX(IX_Sales_Columnstore))
+GROUP BY Region;
+
+-- Query 3: Aggregate sales by product using rowstore index
+SELECT Product, SUM(SalesAmount) AS TotalSales
+FROM Sales WITH (INDEX(IX_Sales_Rowstore))
+GROUP BY Product;
+
+-- Query 4: Aggregate sales by product using columnstore index
+SELECT Product, SUM(SalesAmount) AS TotalSales
+FROM Sales WITH (INDEX(IX_Sales_Columnstore))
+GROUP BY Product;
